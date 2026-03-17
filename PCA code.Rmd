@@ -1,0 +1,70 @@
+---
+title: "NeuroDev_PCA"
+output:
+  pdf_document: default
+  html_document: default
+date: "2024-02-07"
+---
+
+```{r}
+library(ggplot2)
+library(ggfortify)
+data <- PCA_Count_AFR
+attach(data)
+names(data)
+data1 <- transform(data,PC1 = as.numeric(PC1))
+data2 <- transform(data1,PC2 = as.numeric(PC2))
+data.pca <- prcomp(data[,c(2:3)], center = TRUE, scale = TRUE)
+plot2 <- ggplot(data.pca,aes(x=PC1,y=PC2))+ geom_point(size=Counts_total_log, aes(fill=Population, shape=Population, alpha=Population))+ scale_fill_manual(values=c('aquamarine','darkorchid2', '#56B4E9','darkorange','black', '#56B4E9','#999999','#E69F00', 'deeppink','yellow','cyan', 'blue','red', 'firebrick4', 'darkgreen', 'coral3','green'))+ scale_shape_manual(values=c(21, 22, 23, 24, 25, 21, 22, 23, 24, 25, 21, 21, 22, 22, 24, 25, 21))+ scale_alpha_manual(values = c(0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 1, 1, 1, 0.3, 0.3, 0.3))+ theme_classic()+ guides(fill = guide_legend(override.aes = list(alpha = 1)))
+
+```
+
+
+
+#PCA1 and PCA2 with sizes
+```{r}
+ggplot(data.pca,aes(x=PC1,y=PC2))+ geom_point(aes(fill=Population, shape=Population, alpha=Population))+ scale_fill_manual(values=c('aquamarine','darkorchid2', '#56B4E9','darkorange','black', '#56B4E9','#999999','#E69F00', 'deeppink','yellow','cyan', 'blue','red','darkgreen', 'coral3','green'))+ scale_shape_manual(values=c(21, 22, 23, 24, 25, 21, 22, 23, 24, 25, 21, 21, 22, 24, 25, 21))+ scale_alpha_manual(values = c(0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 1, 1, 0.3, 0.3, 0.3))+ theme_classic()+ guides(fill = guide_legend(override.aes = list(alpha = 1)))
+```
+
+#PCA3 and PCA4 default
+```{r}
+data1 <- transform(data,PC3 = as.numeric(PC3))
+data2 <- transform(data1,PC4 = as.numeric(PC4))
+data.pca <- prcomp(data[,c(4:5)], center = TRUE, scale = TRUE)
+ggplot(data.pca,aes(x=PC3,y=PC4))+ geom_point(aes(fill=Population, shape=Population, alpha=Population))+ scale_fill_manual(values=c('aquamarine','darkorchid2', '#56B4E9','darkorange','black', '#56B4E9','#999999','#E69F00', 'deeppink','yellow','cyan', 'blue','red','darkgreen', 'coral3','green'))+ scale_shape_manual(values=c(21, 22, 23, 24, 25, 21, 22, 23, 24, 25, 21, 21, 22, 24, 25, 21))+ scale_alpha_manual(values = c(0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 1, 1, 0.3, 0.3, 0.3))+ theme_classic()+ guides(fill = guide_legend(override.aes = list(alpha = 1)))
+```
+
+#PCA3 and PCA4 with sizes
+```{r}
+ggplot(data.pca,aes(x=PC3,y=PC4))+ geom_point(size=Counts_total_log, aes(fill=Population, shape=Population, alpha=Population))+ scale_fill_manual(values=c('aquamarine','darkorchid2', '#56B4E9','darkorange','black', '#56B4E9','#999999','#E69F00', 'deeppink','yellow','cyan', 'blue','red', 'firebrick4', 'darkgreen', 'coral3','green'))+ scale_shape_manual(values=c(21, 22, 23, 24, 25, 21, 22, 23, 24, 25, 21, 21, 22, 22, 24, 25, 21))+ scale_alpha_manual(values = c(0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 1, 1, 1, 0.3, 0.3, 0.3))+ theme_classic()+ guides(fill = guide_legend(override.aes = list(alpha = 1)))
+```
+
+##Global
+#PCA1 and PCA2 default
+```{r}
+data <- PCA_Count_Global
+attach(data)
+names(data)
+data.pca <- prcomp(data[,c(2:3)], center = TRUE, scale = TRUE)
+ggplot(data.pca,aes(x=PC1,y=PC2))+ geom_point(size=Counts_total_log, aes(fill=Population, shape=Population, alpha=Population))+ scale_fill_manual(values=c('aquamarine','darkorchid2', '#56B4E9','darkgreen','green','#E69F00','blue','red', 'firebrick4','cyan'))+ scale_shape_manual(values=c(21, 22, 23, 24, 25, 21, 21, 22, 22, 24))+ scale_alpha_manual(values = c(0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 1, 1, 1, 0.3))+ theme_classic()+ guides(fill = guide_legend(override.aes = list(alpha = 1)))
+```
+
+#PCA1 and PCA2 with sizes
+```{r}
+ggplot(data.pca,aes(x=PC1,y=PC2))+ geom_point(size=Counts_total_log, aes(fill=Population, shape=Population, alpha=Population))+ scale_fill_manual(values=c('aquamarine','darkorchid2', '#56B4E9','darkgreen','green','#E69F00','blue','red','cyan'))+ scale_shape_manual(values=c(21, 22, 23, 24, 25, 21, 21, 22, 24))+ scale_alpha_manual(values = c(0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 1, 1, 0.3))+ theme_classic()+ guides(fill = guide_legend(override.aes = list(alpha = 1)))
+```
+
+#PCA3 and PCA4 default
+```{r}
+data1 <- transform(data,PC3 = as.numeric(PC3))
+data2 <- transform(data1,PC4 = as.numeric(PC4))
+data.pca <- prcomp(data[,c(2:3)], center = TRUE, scale = TRUE)
+ggplot(data.pca,aes(x=PC1,y=PC2))+ geom_point(aes(fill=Population, shape=Population, alpha=Population))+ scale_fill_manual(values=c('aquamarine','darkorchid2', '#56B4E9','darkgreen','green','#E69F00','blue','red','cyan'))+ scale_shape_manual(values=c(21, 22, 23, 24, 25, 21, 21, 22, 24))+ scale_alpha_manual(values = c(0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 1, 1, 0.3))+ theme_classic()+ guides(fill = guide_legend(override.aes = list(alpha = 1)))
+```
+
+
+#PCA3 and PCA4 with sizes
+```{r}
+data.pca <- prcomp(data[,c(4:5)], center = TRUE, scale = TRUE)
+ggplot(data.pca,aes(x=PC3,y=PC4))+ geom_point(size=Counts_total_log, aes(fill=Population, shape=Population, alpha=Population))+ scale_fill_manual(values=c('aquamarine','darkorchid2', '#56B4E9','darkgreen','green','#E69F00','blue','red', 'firebrick4','cyan'))+ scale_shape_manual(values=c(21, 22, 23, 24, 25, 21, 21, 22, 22, 24))+ scale_alpha_manual(values = c(0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 1, 1, 1, 0.3))+ theme_classic()+ guides(fill = guide_legend(override.aes = list(alpha = 1)))
+```
