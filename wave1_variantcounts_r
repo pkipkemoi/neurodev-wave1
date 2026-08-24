@@ -1,0 +1,338 @@
+
+# y-axis number of rare variants per sample (AF<0.1%)
+# x-axis, lof, missense/indel, synonymous, total
+# by ancestry (Kenya, SA, other split by computed ancestry
+
+library(ggbeeswarm)
+
+# load annotated meta data (download from Terra)
+
+meta <- fread("NeuroDev_analysis_proband_metadata.tsv")
+
+meta <- fread("NeuroDev_analysis_proband_metadata.tsv")
+
+# load rare variants
+
+rv <- fread("NeuroDev_analysis_rare_variants.tsv.bgz")
+
+# only keep protein-coding transcripts
+
+pc_transcripts <- fread("BioMart_all_genes_and_transcripts_GRCh38.txt")
+
+pc_transcripts <- fread("biomart_export.txt.gz")
+
+pc_transcripts <- pc_transcripts[`Gene type` == "protein_coding" & `Transcript type` == "protein_coding"]
+rv <- rv[transcript_id %in% pc_transcripts$`Transcript stable ID`]
+
+# count lof_variant_pp, ms_variant_pp, indel_variant_pp, syn_variant_pp
+
+counts <- meta[, c("s")]
+
+lof_rv <- rv[csq %in% c("stop_gained", "frameshift_variant", "splice_acceptor_variant", "splice_donor_variant")]
+lof_rv[, lof_variant_pp := .N, by="s"]
+counts <- left_join(counts, lof_rv[!duplicated(s), c("s", "lof_variant_pp")], by="s")
+lof_rv <- lof_rv[gnomad_af == 0]
+lof_rv[, unseen_lof_variant_pp := .N, by="s"]
+counts <- left_join(counts, lof_rv[!duplicated(s), c("s", "unseen_lof_variant_pp")], by="s")
+counts[is.na(counts)] <- 0
+range(counts$lof_variant_pp)
+range(counts$unseen_lof_variant_pp)
+
+ms_rv <- rv[csq %in% c("missense_variant", "protein_altering_variant", "stop_lost", "start_lost")]
+ms_rv[, ms_variant_pp := .N, by="s"]
+counts <- left_join(counts, ms_rv[!duplicated(s), c("s", "ms_variant_pp")], by="s")
+ms_rv <- ms_rv[gnomad_af == 0]
+ms_rv[, unseen_ms_variant_pp := .N, by="s"]
+counts <- left_join(counts, ms_rv[!duplicated(s), c("s", "unseen_ms_variant_pp")], by="s")
+counts[is.na(counts)] <- 0
+range(counts$ms_variant_pp)
+range(counts$unseen_ms_variant_pp)
+
+indel_rv <- rv[csq %in% c("inframe_insertion", "inframe_deletion")]
+indel_rv[, indel_variant_pp := .N, by="s"]
+counts <- left_join(counts, indel_rv[!duplicated(s), c("s", "indel_variant_pp")], by="s")
+indel_rv <- indel_rv[gnomad_af == 0]
+indel_rv[, unseen_indel_variant_pp := .N, by="s"]
+counts <- left_join(counts, indel_rv[!duplicated(s), c("s", "unseen_indel_variant_pp")], by="s")
+counts[is.na(counts)] <- 0
+range(counts$indel_variant_pp)
+range(counts$unseen_indel_variant_pp)
+
+syn_rv <- rv[csq %in% c("synonymous_variant")]
+syn_rv[, syn_variant_pp := .N, by="s"]
+counts <- left_join(counts, syn_rv[!duplicated(s), c("s", "syn_variant_pp")], by="s")
+syn_rv <- syn_rv[gnomad_af == 0]
+syn_rv[, unseen_syn_variant_pp := .N, by="s"]
+counts <- left_join(counts, syn_rv[!duplicated(s), c("s", "unseen_syn_variant_pp")], by="s")
+counts[is.na(counts)] <- 0
+range(counts$syn_variant_pp)
+range(counts$unseen_syn_variant_pp)
+
+# count total and unseen
+
+rv[, total_variant_pp := .N, by="s"]
+counts <- left_join(counts, rv[!duplicated(s), c("s", "total_variant_pp")], by="s")
+range(counts$total_variant_pp)
+
+unseen_rv <- rv[gnomad_af == 0]
+unseen_rv[, unseen_variant_pp := .N, by="s"]
+counts <- left_join(counts, unseen_rv[!duplicated(s), c("s", "unseen_variant_pp")], by="s")
+counts[is.na(unseen_variant_pp), unseen_variant_pp := 0]
+range(counts$unseen_variant_pp)
+rm(unseen_rv)
+
+meta <- left_join(meta, counts, by="s") %>% as.data.table()
+
+meta[cohort_summary == "Kenya", ancestry := "Kenyan - NeuroDev"]
+meta[cohort_summary == "SA", ancestry := "South African - NeuroDev"]
+table(meta$ancestry)
+
+meta[, ancestry := factor(ancestry, levels=c("South African - NeuroDev", "Kenyan - NeuroDev", "Ashkenazi Jewish", "East Asian", "Hispanic or Latino", "Middle Eastern", "South Asian", "White"))]
+meta <- meta[!is.na(ancestry)]
+nrow(meta[!complete.cases(ancestry)])
+
+# option 1: keep all Kenya and SA, remove outliers samples from all other ancestries and down sample to 50
+# option 2: remove outliers samples from all other ancestries and down sample all to 50
+
+outliers <- meta[lof_variant_pp>40 & !grepl("Neurodev", ancestry)]$s
+outliers # check in seqr
+meta <- meta[!s %in% outliers]
+table(meta$ancestry)
+meta[, n_ancestry := .N, by="ancestry"]
+range(meta$n_ancestry)
+
+# priortize samples that are included in the de novo analysis
+
+dn_samples <- fread("downsample_for_denovo_analyses.txt")
+dn_samples <- dn_samples$s
+
+for(i in unique(meta[n_ancestry>50 & !(ancestry %in% c("South African - NeuroDev", "Kenyan - NeuroDev"))]$ancestry)){
+#for(i in unique(meta[n_ancestry>50]$ancestry)){
+  set.seed(25)
+  sample_keep <- meta[ancestry == i & s %in% dn_samples]$s
+  ancestry_sample <- sample(x=meta[ancestry == i & !(s %in% sample_keep)]$s, size=(50-length(sample_keep)))
+  ancestry_sample <- c(sample_keep, ancestry_sample)
+  ancestry_sample_dt <- meta[s %in% ancestry_sample]
+  meta <- rbind(meta[ancestry != i], ancestry_sample_dt, use.names=T, fill=T)
+}
+table(meta$ancestry)
+
+##Option 2 re-analysis for just 50 participants for each ancestry group and Neurodev
+
+for(i in unique(meta[n_ancestry > 50]$ancestry)){
+  set.seed(25)
+  
+  # samples that must be retained (e.g., de novo samples)
+  sample_keep <- meta[ancestry == i & s %in% dn_samples]$s
+  
+  # guard: if required samples alone exceed 50, sampling would fail
+  if(length(sample_keep) >= 50){
+    warning(paste0(i, ": ", length(sample_keep),
+                   " required samples >= 50; keeping a random 50 of those"))
+    ancestry_sample <- sample(x = sample_keep, size = 50)
+  } else {
+    ancestry_sample <- sample(x = meta[ancestry == i & !(s %in% sample_keep)]$s,
+                              size = 50 - length(sample_keep))
+    ancestry_sample <- c(sample_keep, ancestry_sample)
+  }
+  
+  ancestry_sample_dt <- meta[s %in% ancestry_sample]
+  meta <- rbind(meta[ancestry != i], ancestry_sample_dt, use.names = T, fill = T)
+}
+
+table(meta$ancestry)  # every group with n > 50 should now show exactly 50
+
+# save down sampling for other rare variants analyses
+
+downsample <- meta[, c("s", "ancestry", "cohort_summary")]
+downsample <- downsample[!duplicated(s)]
+
+# save down sampling for other rare variants analyses with just 50
+
+downsample <- meta[, c("s", "ancestry", "cohort_summary")]
+downsample <- downsample[!duplicated(s)]
+
+write.table(downsample, file= "downsample_for_rare_variant_analyses_50.txt", sep = "\t", col.names = T, row.names = F, quote = FALSE)
+
+results <- meta[, c("s", "cohort_summary", "project_summary", "proband_relationship", "family_id",
+                       "ancestry", "lof_variant_pp", "ms_variant_pp", "indel_variant_pp", "syn_variant_pp" , "total_variant_pp", "unseen_variant_pp")]
+
+write.table(results, file = "Downloads/rare_variant_counts_by_ancestry.tsv", sep = "\t", col.names = T, row.names = F, quote = FALSE)
+
+library(Rmisc)
+
+# LoF
+
+lof_stats <- summarySE(meta, measurevar="lof_variant_pp", groupvars="ancestry")
+
+lof_figure <- ggplot() +
+  geom_quasirandom(data=meta, aes(x=ancestry, y=lof_variant_pp, color=ancestry)) +
+  geom_point(mapping = aes(ancestry, lof_variant_pp), data = lof_stats) +
+  geom_errorbar(mapping = aes(x = ancestry, ymin = lof_variant_pp-ci, ymax = lof_variant_pp+ci), 
+                data = lof_stats, width = 0.2) +
+  theme_classic() +
+  scale_y_continuous(limits = c(0,40), breaks = c(0,10,20,30, 40)) +
+  scale_color_manual(values=c("#A0CBF0", "#4782B4", "#FF60C3", "#CD78F4", "#57BEA0", "#53B74C", "#98A934", "#C99432")) +
+  labs(title = "LoF", y="rare variants per proband (n)", color="ancestry") +
+  theme(plot.title = element_text(hjust = 0.5, size=11, face="bold")) +
+  theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank()) +
+  theme(legend.position = "none")
+
+lof_figure
+
+
+# missense/indel
+
+meta[, ms_indel_variant_pp := ms_variant_pp + indel_variant_pp]
+ms_indel_stats <- summarySE(meta, measurevar="ms_indel_variant_pp", groupvars="ancestry")
+
+ms_indel_figure <- ggplot() +
+  geom_quasirandom(data=meta, aes(x=ancestry, y=ms_indel_variant_pp, color=ancestry)) +
+  geom_point(mapping = aes(ancestry, ms_indel_variant_pp), data = ms_indel_stats) +
+  geom_errorbar(mapping = aes(x = ancestry, ymin = ms_indel_variant_pp-ci, ymax = ms_indel_variant_pp+ci), 
+                data = ms_indel_stats, width = 0.2) +
+  theme_classic() +
+  scale_y_continuous(limits = c(0,1000), breaks = c(0,200,400,600,800,1000)) +
+  scale_color_manual(values=c("#A0CBF0", "#4782B4", "#FF60C3", "#CD78F4", "#57BEA0", "#53B74C", "#98A934", "#C99432")) +
+  labs(title = "missense/indel", y="rare variants per proband (n)", color="ancestry") +
+  theme(plot.title = element_text(hjust = 0.5, size=11, face="bold")) +
+  theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank()) +
+  theme(axis.title.y=element_blank()) +
+  theme(legend.position = "none")
+
+# synonymous
+
+syn_stats <- summarySE(meta, measurevar="syn_variant_pp", groupvars="ancestry")
+
+syn_figure <- ggplot() +
+  geom_quasirandom(data=meta, aes(x=ancestry, y=syn_variant_pp, color=ancestry)) +
+  geom_point(mapping = aes(ancestry, syn_variant_pp), data = syn_stats) +
+  geom_errorbar(mapping = aes(x = ancestry, ymin = syn_variant_pp-ci, ymax = syn_variant_pp+ci), 
+                data = syn_stats, width = 0.2) +
+  theme_classic() +
+  scale_y_continuous(limits = c(0,1000), breaks = c(0,200,400,600,800,1000)) +
+  scale_color_manual(values=c("#A0CBF0", "#4782B4", "#FF60C3", "#CD78F4", "#57BEA0", "#53B74C", "#98A934", "#C99432")) +
+  labs(title = "synonymous", y="rare variants per proband (n)", color="ancestry") +
+  theme(plot.title = element_text(hjust = 0.5, size=11, face="bold")) +
+  theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank()) +
+  theme(axis.title.y=element_blank()) +
+  theme(legend.position = "none")
+
+# total
+
+total_stats <- summarySE(meta, measurevar="total_variant_pp", groupvars="ancestry")
+
+total_figure <- ggplot() +
+  geom_quasirandom(data=meta, aes(x=ancestry, y=total_variant_pp, color=ancestry)) +
+  geom_point(mapping = aes(ancestry, total_variant_pp), data = total_stats) +
+  geom_errorbar(mapping = aes(x = ancestry, ymin = total_variant_pp-ci, ymax = total_variant_pp+ci), 
+                data = total_stats, width = 0.2) +
+  theme_classic() +
+  scale_y_continuous(limits = c(0,2000), breaks = c(0,500,1000,1500,2000)) +
+  scale_color_manual(values=c("#A0CBF0", "#4782B4", "#FF60C3", "#CD78F4", "#57BEA0", "#53B74C", "#98A934", "#C99432")) +
+  labs(title = "total rare", y="rare variants per proband (n)", color="ancestry") +
+  theme(plot.title = element_text(hjust = 0.5, size=11, face="bold")) +
+  theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank()) +
+  theme(axis.title.y=element_blank()) +
+  theme(legend.position = "none")
+
+# unseen
+
+unseen_stats <- summarySE(meta, measurevar="unseen_variant_pp", groupvars="ancestry")
+
+unseen_figure <- ggplot() +
+  geom_quasirandom(data=meta, aes(x=ancestry, y=unseen_variant_pp, color=ancestry)) +
+  geom_point(mapping = aes(ancestry, unseen_variant_pp), data = unseen_stats) +
+  geom_errorbar(mapping = aes(x = ancestry, ymin = unseen_variant_pp-ci, ymax = unseen_variant_pp+ci), 
+                data = unseen_stats, width = 0.2) +
+  theme_classic() +
+  scale_y_continuous(limits = c(0,100), breaks = c(0,20,40,60,80,100)) +
+  scale_color_manual(values=c("#A0CBF0", "#4782B4", "#FF60C3", "#CD78F4", "#57BEA0", "#53B74C", "#98A934", "#C99432")) +
+  labs(title = "total unseen", color="ancestry") +
+  theme(plot.title = element_text(hjust = 0.5, size=11, face="bold")) +
+  theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank(), axis.title.y=element_blank()) +
+  theme(legend.position = "none")
+
+library(ggpubr)
+
+count_figure <- ggarrange(NULL, lof_figure, ms_indel_figure, syn_figure, total_figure, unseen_figure,
+                          labels = c("(a)", "", "", "", "", "", NULL),
+                          widths = c(0.2, 1.05, 1, 1, 1, 1,0.1),
+                          ncol = 7, nrow = 1)
+
+pdf("NeuroDev_variant_counts_by_function_2.pdf", width=9.5, height=3)
+count_figure
+dev.off()
+
+# alternative figure
+
+# unseen LoF
+
+library(Rmisc)
+library(ggbeeswarm)
+unseen_lof_stats <- summarySE(meta, measurevar="unseen_lof_variant_pp", groupvars="ancestry")
+
+unseen_lof_figure <- ggplot() +
+  geom_quasirandom(data=meta, aes(x=ancestry, y=unseen_lof_variant_pp, color=ancestry)) +
+  geom_point(mapping = aes(ancestry, unseen_lof_variant_pp), data = unseen_lof_stats) +
+  geom_errorbar(mapping = aes(x = ancestry, ymin = unseen_lof_variant_pp-ci, ymax = unseen_lof_variant_pp+ci), 
+                data = unseen_lof_stats, width = 0.2) +
+  theme_classic() +
+  scale_y_continuous(limits = c(0,15), breaks = c(0,5,10)) +
+  scale_color_manual(values=c("#A0CBF0", "#4782B4", "#FF60C3", "#CD78F4", "#57BEA0", "#53B74C", "#98A934", "#C99432")) +
+  labs(title = "LoF", y="Unseen variants (AF = 0%)", color="Ancestry") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank()) +
+  theme(legend.position = "none")
+
+# missense/indel
+
+meta[, unseen_ms_indel_variant_pp := unseen_ms_variant_pp + unseen_indel_variant_pp]
+unseen_ms_indel_stats <- summarySE(meta, measurevar="unseen_ms_indel_variant_pp", groupvars="ancestry")
+
+unseen_ms_indel_figure <- ggplot() +
+  geom_quasirandom(data=meta, aes(x=ancestry, y=unseen_ms_indel_variant_pp, color=ancestry)) +
+  geom_point(mapping = aes(ancestry, unseen_ms_indel_variant_pp), data = unseen_ms_indel_stats) +
+  geom_errorbar(mapping = aes(x = ancestry, ymin = unseen_ms_indel_variant_pp-ci, ymax = unseen_ms_indel_variant_pp+ci), 
+                data = unseen_ms_indel_stats, width = 0.2) +
+  theme_classic() +
+  scale_y_continuous(limits = c(0,150), breaks = c(0,50,100,150)) +
+  scale_color_manual(values=c("#A0CBF0", "#4782B4", "#FF60C3", "#CD78F4", "#57BEA0", "#53B74C", "#98A934", "#C99432")) +
+  labs(title = "Missense/indel", y="Rare variants (AF <0.1%)", color="Ancestry") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank()) +
+  theme(axis.title.y=element_blank()) +
+  theme(legend.position = "none")
+
+# synonymous
+
+unseen_syn_stats <- summarySE(meta, measurevar="unseen_syn_variant_pp", groupvars="ancestry")
+
+unseen_syn_figure <- ggplot() +
+  geom_quasirandom(data=meta, aes(x=ancestry, y=unseen_syn_variant_pp, color=ancestry)) +
+  geom_point(mapping = aes(ancestry, unseen_syn_variant_pp), data = unseen_syn_stats) +
+  geom_errorbar(mapping = aes(x = ancestry, ymin = unseen_syn_variant_pp-ci, ymax = unseen_syn_variant_pp+ci), 
+                data = unseen_syn_stats, width = 0.2) +
+  theme_classic() +
+  scale_y_continuous(limits = c(0,40), breaks = c(0,10,20,30,40)) +
+  scale_color_manual(values=c("#A0CBF0", "#4782B4", "#FF60C3", "#CD78F4", "#57BEA0", "#53B74C", "#98A934", "#C99432")) +
+  labs(title = "Synonymous", y="Rare variants (AF <0.1%)", color="Ancestry") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank()) +
+  theme(axis.title.y=element_blank()) +
+  theme(legend.position = "none")
+
+library(ggpubr)
+
+alt_count_figure <- ggarrange(NULL, lof_figure, ms_indel_figure, syn_figure, total_figure,
+                          NULL, unseen_lof_figure, unseen_ms_indel_figure, unseen_syn_figure, unseen_figure,
+                          labels = c("(a)", "", "", "", "",
+                                     "(b)", "", "", "", ""),
+                          widths = c(0.2, 1, 1, 1, 1),
+                          ncol = 5, nrow = 2)
+
+pdf("NeuroDev_variant_counts_by_function_alternative.pdf", width=9.5, height=4.5)
+alt_count_figure
+dev.off()
+
+
