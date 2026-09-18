@@ -4,12 +4,12 @@ Repository for NeuroDev Wave 1 analyses.
 ********************
 README File
 ********************
-0. SECTIONS 
 ------------- 
 1.Project 
 2.Dataset 
 3.Terms of Use/Data Access
 4.Related Publication(s)
+5. Code / Analysis Scripts
 
 1. PROJECTS 
 Title: The NeuroDev Study- Genetic Characterization of Neurodevelopmental Disorders in African Populations
@@ -49,4 +49,33 @@ NeuroDev Wave 1 phenotypic data will be available through the NIMH data archive:
 4. RELATED PUBLICATION(S)
 -------------------------- 
 Kipkemoi P, Kim H, Christ B., et al. Phenotype and genetic analysis of data collected within the first year of NeuroDev Neuron, 2023; 111, 2800-2810.e5; https://www.cell.com/neuron/fulltext/S0896-6273(23)00470-1
+
+5. CODE / ANALYSIS SCRIPTS
+--------------------------
+This study used established software tools together with custom analysis scripts written in R. No novel standalone software package was produced. The code's functionality is described in full in the Methods section of the manuscript.
+
+Analysis code is available at: https://github.com/pkipkemoi/neurodev-wave1
+
+System requirements
+
+- R version 4.4 (analyses conducted 2025)
+- R packages: dplyr, tidyr, data.table, ggplot2
+- Genetic analyses used the following established tools, as described in
+  Methods: GATK (HaplotypeCaller v3.5; gCNV for CNV calling), Variant Effect
+  Predictor (VEP), seqr GWASpy (https://github.com/atgu/GWASpy), zCall
+- Reference genome: GRCh38
+- Reference datasets: gnomAD v4.1; joint HGDP / 1000 Genomes Project; African Genome Variation Project.
+- No non-standard hardware required for the phenotypic/statistical analysis scripts.
+
+--------------------------
+The analysis scripts operate on individual-level participant data that are access-controlled (see Section 3: NIMH Data Archive and ClinVar). A public demo dataset is therefore not included. Reviewers and editors may access the underlying data through the NIMH Data Archive. 
+
+The scripts expect REDCap-format CSV exports as input.
+
+- wave1analysis_sociomedicalfactors
+Script used for Table 1
+- wave1_variantcountr_r
+Script used for the rare variant count analyses
+- PCA code.rmd
+R markdown file for the PCA plots
 
